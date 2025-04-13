@@ -1,32 +1,45 @@
 import { NextResponse } from "next/server"
-import * as ShopifyAuth from "@/lib/shopify/authentication"
 
 export async function GET() {
-  try {
-    // Test if we can access the authentication module
-    const authStatus = {
-      moduleLoaded: !!ShopifyAuth,
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV,
-      shopifyVariables: {
-        apiKeyExists: !!process.env.SHOPIFY_API_KEY,
-        apiSecretExists: !!process.env.SHOPIFY_API_SECRET_KEY,
-        shopifyStoreExists: !!process.env.SHOPIFY_STORE_DOMAIN,
-      },
+  const domain = process.env.NEXT_PUBLIC_DOMAIN
+  const storefrontAccessToken = process.env.NEXT_PUBLIC_SHOPIFY_PUBLIC_TOKEN
+
+  // Simple query to get shop information
+  const query = `
+    query {
+      shop {
+        name
+        primaryDomain {
+          url
+        }
+      }
     }
+  `
+
+  try {
+    const response = await fetch(`https://${domain}/api/2023-07/graphql.json`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-SHOPIFY_PUBLIC_TOKEN": storefrontAccessToken,
+      },
+      body: JSON.stringify({ query }),
+    })
+
+    const data = await response.json()
 
     return NextResponse.json({
-      status: "success",
-      message: "Shopify authentication module loaded successfully",
-      authStatus,
+      success: true,
+      message: "Successfully connected to Shopify",
+      shop: data.data.shop,
     })
   } catch (error) {
-    console.error("Error testing Shopify authentication:", error)
+    console.error("Error connecting to Shopify:", error)
     return NextResponse.json(
       {
-        status: "error",
-        message: "Failed to load Shopify authentication module",
-        error: error instanceof Error ? error.message : String(error),
+        success: false,
+        message: "Failed to connect to Shopify",
+        error: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },
     )
